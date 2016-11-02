@@ -1,0 +1,26 @@
+
+/* Input: pantip_sighting_bydevice_atlas table acquired using code 02pantip_sighting_device.txt
+[impala.prd.sg1.tapad.com:21000] > select * from rata.pantip_sighting_bydevice_atlas limit 2;
+Query: select * from rata.pantip_sighting_bydevice_atlas limit 2
++------------+----------+------------+---------+-----------------+---------+---------------------+-----------------------+--------------+---------------+---------------+------------+--------------+
+| day        | platform | hl_carrier | carrier | device_techname | brand   | device_commercname  | hl_device_commercname | release_year | release_month | release_price | screensize | num_tapad_id |
++------------+----------+------------+---------+-----------------+---------+---------------------+-----------------------+--------------+---------------+---------------+------------+--------------+
+| 2016-10-02 | ANDROID  | OMO        | TMH     | htc desire 816  | htc     | desire 816 dual sim | other                 | 2014         | May           | 250           | 5.5        | 164          |
+| 2016-10-10 | ANDROID  | OMO        | TMH     | sm-t719         | samsung | galaxy note7 (usa)  | galaxy note7 (usa)    | 2016         | August        | 760           | 5.7        | 84           |
++------------+----------+------------+---------+-----------------+---------+---------------------+-----------------------+--------------+---------------+---------------+------------+--------------+
+*/
+
+select device_commercname, sum(num_tapad_id) as num_tapad_id from rata.pantip_sighting_bydevice_atlas group by device_commercname order by num_tapad_id desc;
+
+impala-shell -i impala.prd.sg1.tapad.com:21000 -B -o /local/home/rata.suwantong/pantip_device_ranking_pre.csv --output_delimiter=',' -q "use rata; select device_commercname, sum(num_tapad_id) as num_tapad_id from rata.pantip_sighting_bydevice_atlas group by device_commercname order by num_tapad_id desc"
+
+echo $'device_commercname, num_tapad_id' | cat - pantip_device_ranking_pre.csv > pantip_device_ranking.csv
+
+
+/*OMO_only*/
+select device_commercname, sum(num_tapad_id) as num_tapad_id from rata.pantip_sighting_bydevice_atlas where hl_carrier ='OMO' group by device_commercname order by num_tapad_id desc;
+
+impala-shell -i impala.prd.sg1.tapad.com:21000 -B -o /local/home/rata.suwantong/pantip_device_ranking_omo_pre.csv --output_delimiter=',' -q "use rata; select device_commercname, sum(num_tapad_id) as num_tapad_id from rata.pantip_sighting_bydevice_atlas where hl_carrier ='OMO' group by device_commercname order by num_tapad_id desc;
+"
+
+echo $'device_commercname, num_tapad_id' | cat - pantip_device_ranking_omo_pre.csv > pantip_device_ranking_omo.csv

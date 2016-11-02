@@ -1,0 +1,35 @@
+/*
+####################################################################################
+# Name: 06pt_tpidlist_hlcarrier_flag
+# Description: Create a list of tapad id on Pantip (1 month) with flags of used high level carrier (Wifi-Dtac-Omo) by each tapad id
+# Input: rata.pt_tpidlist_bycarrier_0925_2410
+# Version:
+#   2016/11/02 RS: Initial version
+#   
+####################################################################################
+*/
+
+
+create table rata.pt_tpidlist_hlcarrier_flag  row format delimited fields terminated by '\t' as ( select tapad_id, case when Dtac_flag>0 then 1 else 0 end as Dtac_flag, case when Omo_flag>0 then 1 else 0 end as Omo_flag, case when Wifi_flag>0 then 1 else 0 end as Wifi_flag from
+(select tapad_id, sum(Dtac_flag) as Dtac_flag, sum(Omo_flag) as Omo_flag, sum(Wifi_flag) as Wifi_flag from
+(select tapad_id, 
+		case when hl_carrier ='DTAC' then 1 else 0 end as Dtac_flag,
+		case when hl_carrier ='OMO' then 1 else 0 end as Omo_flag,
+		case when hl_carrier ='Wi-Fi' then 1 else 0 end as Wifi_flag
+		from rata.pt_tpidlist_bycarrier_0925_2410 where platform = 'Mobile' ) A group by tapad_id) B  );
+		
+
+select Wifi_flag, Omo_flag, Dtac_flag, count(tapad_id) from rata.pt_tapad_list_allnetwork group by Wifi_flag, Omo_flag, Dtac_flag order by Wifi_flag asc, Omo_flag asc, Dtac_flag asc;
+
+
++-----------+----------+-----------+-----------------+
+| wifi_flag | omo_flag | dtac_flag | count(tapad_id) |
++-----------+----------+-----------+-----------------+
+| 0         | 0        | 1         | 2750609         |
+| 0         | 1        | 0         | 5748271         |
+| 0         | 1        | 1         | 15515           |
+| 1         | 0        | 0         | 10470590        |
+| 1         | 0        | 1         | 415160          |
+| 1         | 1        | 0         | 1245672         |
+| 1         | 1        | 1         | 29479           |
++-----------+----------+-----------+-----------------+

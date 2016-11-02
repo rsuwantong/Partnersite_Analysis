@@ -1,0 +1,76 @@
+####################################################################################
+# Name: 00load_mobileatlas
+# Description: Create an Impala table of mobile atlas from the uploaded csv file
+# Input: Mobile atlas table in the folder /user/rata.suwantong/impala_rata2/techname_data_mobile_atlas_wodetail/
+# Version:
+#   2016/10/20 RS: Initial version
+#   
+####################################################################################
+*/
+
+/*Upload Mobile Atlas csv on an Impala's Database Folder (here impala_rata2) and Write a Mobile Atlas Impala Table*/
+use rata2;
+drop table if exists rata2.mobile_atlas_table_pre;
+CREATE EXTERNAL TABLE if not exists rata2.mobile_atlas_table_pre
+ (
+	device_techname STRING,
+    brand STRING,
+    device_commercname STRING,
+    release_year STRING,
+    release_month STRING,
+    release_price STRING,
+	screensize STRING,
+	popularity STRING
+ )   
+ ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ESCAPED BY ','
+ LOCATION '/user/rata.suwantong/impala_rata2/techname_data_mobile_atlas_wodetail/';
+
+
+ /* check the release_year values
+ select distinct release_year from rata.mobile_atlas_table
+ case when release_month ='20078' then '2007' 
++--------------+
+| release_year |
++--------------+
+| 2007         |
+| 2013         |
+| 2016         |
+| 2008         |
+| 20078        |
+| 2014         |
+| 2011         |
+| 2012         |
+| 2009         |
+| 2015         |
+| 2010         |
++--------------+
+*/
+
+/*Correct the Mobile Atlas Table*/
+
+drop table if exists rata.mobile_atlas_table	;
+create table rata.mobile_atlas_table row format delimited fields terminated by '\t' as ( select device_techname, case when device_techname = 'a700' then 'lenovo' else brand end as brand, case when device_techname = 'a700' then 'a7000' else device_commercname end as device_commercname, case when release_month ='20078' then '2007' else release_year  end as release_year, 
+case when release_month ='Q1' then 'March' when release_month ='Q2' then 'June'
+  when release_month ='Q3' then 'September' when release_month ='Q4' then 'December' else release_month end as release_month,
+  case when device_techname ='sm-a800' then '270' when (release_price !='NA' and device_techname !='a700') then release_price when device_techname = 'a700' then '140' end as release_price,   case when screensize !='NA' then screensize end as screensize, popularity 
+from rata2.mobile_atlas_table_pre where brand !='brand');
+
+
+
+use rata2;
+drop table if exists rata2.techname_cluster_map;
+CREATE EXTERNAL TABLE rata2.techname_cluster_map_pre
+ (
+	device_techname STRING,
+    cluster STRING
+ )   
+ ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ESCAPED BY ','
+ LOCATION '/user/rata.suwantong/impala_rata2/techname_cluster_map/';
+
+
+ create table rata.techname_cluster_map row format delimited fields terminated by '\t' as ( select device_techname, cast(cluster as double) as cluster from rata2.techname_cluster_map_pre where cluster !='cluster');
+ 
+  create table rata.mobile_atlas_table_wcluster row format delimited fields terminated by '\t' as ( select a.*, b.cluster from rata.mobile_atlas_table a left join rata.techname_cluster_map b on a.device_techname = b.device_techname
+  );
+ 
+

@@ -1,0 +1,76 @@
+/*
+####################################################################################
+# Name: 04pt_tpidnum_accum_byhlcarrier
+# Input: default.id_syncs table
+# Description/ Output: Create a table of the number of distinct_tpids, new_tpids and cumulative_new_tpids on Pantip during 1 month
+# Version:
+#   2016/11/02 RS: Initial version
+#   
+####################################################################################
+*/
+
+
+/*Create the Pantip Sighting by Carrier Table */
+
+use rata; create table rata.pt_tpidlist_bycarrier row format delimited fields terminated by '\t' as ( 
+select day, platform, case when carrier ='DTAC' then 'DTAC' when carrier ='Wi-Fi' then 'Wi-Fi' else 'OMO' end as hl_carrier, carrier, tapad_id from
+(select day, case when platform in ('ANDROID','ANDROID_TABLET','WINDOWS_PHONE','WINDOWS_TABLET','BLACKBERRY','FEATURE_PHONE','IPHONE') then 'Mobile' 
+else 'Non Mobile' end as platform,
+case when ip_number between 18087936 and 18153471 then 'OTH' /*OTH means TOT */
+  when ip_number between 19791872 and 19922943 then 'DTAC'
+  when ip_number between 456589312 and 456654847 then  'TMH'
+          when ip_number between 837156864 and 837222399 then  'AIS'
+          when ip_number between 837615616 and 837681151 then  'TMH'
+          when ip_number between 1848705024 and 1848770559 then  'AIS'
+          when ip_number between 1867776000 and 1867825151 then  'DTAC'
+          when ip_number between 1867826176 and 1867841535 then  'DTAC'
+          when ip_number between 1933770752 and 1933836287 then  'DTAC'
+          when ip_number between 1998520320 and 1998553087 then  'AIS'
+          when ip_number between 2523597824 and 2523598847 then  'OTH'
+          when ip_number between 3033972736 and 3033980927 then  'TMH'
+          when ip_number between 3068657664 and 3068723199 then  'AIS'
+          when ip_number between 3398768640 and 3398769663 then  'AIS'
+          when ip_number between 3415276128 and 3415276159 then  'TMH'
+          when ip_number between 3742892032 and 3742957567 then  'TMH'
+         else 'Wi-Fi'
+  end as carrier, tapad_id from
+(select regexp_replace(cast(cast(a.header.created_at/1000 as timestamp) as string),' .*','') as day, 
+	   case when lower(a.header.platform)='iphone' and lower(a.header.platform) like ('%windows phone%') then 'WINDOWS_PHONE' else a.header.platform end as platform, 
+	   cast(split_part(a.header.ip_address,'.',1) as INT)*16777216 + cast(split_part(a.header.ip_address,'.',2) as INT)*65536 + cast(split_part(a.header.ip_address,'.',3) as INT)*256+ cast(split_part(a.header.ip_address,'.',4) as INT) ip_number,
+	   b.value as tapad_id
+from default.id_syncs a, a.header.incoming_ids b, b.sightings_by_id_type c where a.header.network.country='THA' and partner_id in (2243)  and YEAR=2016 and ((MONTH=9 and DAY>=25) or (MONTH=10 and DAY < 25)) and c.key='TAPAD_COOKIE') A ) B order by day asc, platform asc, hl_carrier asc, carrier asc);
+
+
+
+
+drop table if exists rata.pt_tpidnum_accum_byhlcarrier;
+use rata;create table rata.pt_tpidnum_accum_byhlcarrier row format delimited fields terminated by '\t' as ( 
+SELECT hl_carrier, day,
+   COUNT(*) AS distinct_tpids
+  ,SUM(flag) AS new_tpids
+  ,SUM(SUM(flag)) 
+   OVER (partition by hl_carrier ORDER BY hl_carrier, day 
+         ROWS UNBOUNDED PRECEDING) AS cumulative_new_tpids 
+FROM
+ (
+   SELECT
+      hl_carrier
+	 ,tapad_id
+     ,day
+     ,CASE 
+         WHEN day
+            = MIN(day) 
+              OVER (PARTITION BY hl_carrier, tapad_id) 
+         THEN 1 
+         ELSE 0 
+      END AS flag
+   FROM rata.pt_tpidlist_bycarrier where platform ='Mobile'
+   GROUP BY hl_carrier, day, tapad_id
+ ) AS dt
+GROUP BY hl_carrier, day
+order by hl_carrier asc, day asc);
+
+
+impala-shell -i impala.prd.sg1.tapad.com:21000 -B -o /local/home/rata.suwantong/pt_tpidnum_accum_byhlcarrier_pre.csv --output_delimiter=',' -q "use rata; select * from rata.pt_tpidnum_accum_byhlcarrier order by hl_carrier asc, day asc"
+
+echo $'DATE,PLATFORM,HL_CARRIER,CARRIER,NUM_TAPAD_IDS' | cat - pt_tpidnum_accum_byhlcarrier_pre.csv  > pt_tpidnum_accum_byhlcarrier.csv

@@ -1,0 +1,47 @@
+/*
+####################################################################################
+# Name: 07pt_tpidlist_wifionly_nonDtac
+# Description: Create a tapad id list of wifi-only users on Pantip during 1 month excluding Dtac users on any partner of Tapad during the last 30 days
+# Input: Table rata.pt_tpidlist_hlcarrier_flag from 06pt_tpidlist_hlcarrier_flag
+#		 Table apollo.tapad_id_summary_counts
+# Version:
+#   2016/11/02 RS: Initial version
+#   
+####################################################################################
+*/
+
+
+/*Create a tapad id list of wifi-only users on Pantip during 1 month*/
+
+drop table if exists rata.pt_wifi;
+create table rata.pt_wifi  row format delimited fields terminated by '\t' as ( select * from rata.pt_tpidlist_hlcarrier_flag where wifi_flag=1 and omo_flag=0 and dtac_flag =0) ;
+
+select count(tapad_id) from rata.pt_wifi; /*Check the accuracy*/
+
++-----------------+
+| count(tapad_id) |
++-----------------+
+| 10470590        |
++-----------------+
+
+/*Create a tapad id list of Dtac users using historical data (latest 30 days) from table apollo.tapad_id_summary_counts*/
+
+drop table if exists rata.tpidlist_dtac_10;
+create table rata.tpidlist_dtac_10  row format delimited fields terminated by '\t' as ( 
+select tapad_id from apollo.tapad_id_summary_counts where txn_dtac>0 and month =10 group by tapad_id );
+
+/*Exclude the Dtac users from pantip wifi users*/
+drop table if exists rata2.pt_tpidlist_wifionly_nonDtac;
+create table rata2.pt_tpidlist_wifionly_nonDtac  row format delimited fields terminated by '\t' as ( select A.* from rata.pt_wifi A left join rata.tpidlist_dtac_10 B on A.tapad_id = B.tapad_id where b.tapad_id is null) ;
++--------------------------+
+| count(distinct tapad_id) |
++--------------------------+
+| 10356654                 |
++--------------------------+
+
+/* If we want to extract the surely OMO uses from "wifi-only on Pantip" users instead, use: */
+/*
+drop table rata.tpidlist_omo;
+create table rata.tpidlist_omo  row format delimited fields terminated by '\t' as ( 
+select tapad_id from apollo.tapad_id_summary_counts where txn_dtac=0 and txn_tapad_mobile >0 group by tapad_id );
+*/

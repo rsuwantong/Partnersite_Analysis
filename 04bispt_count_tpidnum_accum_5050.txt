@@ -1,0 +1,49 @@
+/*
+####################################################################################
+# Name: 04bispt_count_tpidnum_accum_5050
+# Input: pt_tpidlist_bycarrier table obtained using 04pt_tpidnum_accum_byhlcarrier.txt
+# Description: Check how many percent of newly added number during the last two weeks of the month compared to the first two weeks
+# Output:
+# Version:
+#   2016/11/02 RS: Initial version
+#   
+####################################################################################
+*/
+
+
+use rata;create table rata.pantip_tapadid_list_carrier_mobile_5050 row format delimited fields terminated by '\t' as (select case when (month(day)=9 or (month(day)=10 and day(day)<10)) then '2016-09-25 to 2016-10-09' when (month(day)=10 and day(day)>=10) then '2016-10-10 to 2016-10-25' end as part, tapad_id from rata.pt_tpidlist_bycarrier where hl_carrier = 'OMO' and platform = 'Mobile');
+
+use rata;create table rata.pantip_tapadid_mobileomo_count_5050 row format delimited fields terminated by '\t' as ( 
+SELECT part,
+   COUNT(*) AS distinct_tpids
+  ,SUM(flag) AS new_tpids
+  ,SUM(SUM(flag)) 
+   OVER (ORDER BY part 
+         ROWS UNBOUNDED PRECEDING) AS cumulative_new_tpids 
+FROM
+ (
+   SELECT
+      tapad_id
+     ,part
+     ,CASE 
+         WHEN part
+            = MIN(part) 
+              OVER (PARTITION BY tapad_id) 
+         THEN 1 
+         ELSE 0 
+      END AS flag
+   FROM rata.pantip_tapadid_list_carrier_mobile_5050
+   GROUP BY part, tapad_id
+ ) AS dt
+GROUP BY 1);
+
+/*Export csv*/
+
+/*
+impala-shell -i impala.prd.sg1.tapad.com:21000 -B -o /local/home/rata.suwantong/pantip_tapadid_mobileomo_count_5050_pre.csv --output_delimiter=',' -q "select * from rata.pantip_tapadid_mobileomo_count_5050"
+
+
+echo $'day, distinct_tpids, new_tpids, cumulative_new_tpids' | cat - pantip_tapadid_mobileomo_count_5050_pre.csv > pantip_tapadid_mobileomo_count_5050.csv
+
+*/
+

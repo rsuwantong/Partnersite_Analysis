@@ -1,0 +1,164 @@
+/*
+####################################################################################
+# Name: 05kd_sighting_byday_hlcarrier_cluster_count
+# Input: default.id_syncs table, mobile_atlas_table_wcluster table created using 01_upload_mobileatlas.txt
+# Output: An Impala table of number of distinct Tapad ids monthly and daily average on kaidee by hl_carrier and by cluster for MOBILE
+# Version:
+#   2016/11/02 RS: Initial version
+#   
+####################################################################################
+*/
+
+/*Create the kaidee Sighting by Carrier and Device Table for mobile */
+
+drop table if exists rata.kd_tpidlist_byday_carrier_device_0925_2410;
+
+use rata;create table rata.kd_tpidlist_byday_carrier_device_0925_2410 row format delimited fields terminated by '\t' as (
+select day, platform, case when carrier ='DTAC' then 'DTAC' when carrier ='Wi-Fi' then 'Wi-Fi' else 'OMO' end as hl_carrier, device_techname, tapad_id from
+(select day, platform,
+case when ip_number between 18087936 and 18153471 then 'OTH' /*OTH means TOT */
+  when ip_number between 19791872 and 19922943 then 'DTAC'
+  when ip_number between 456589312 and 456654847 then  'TMH'
+          when ip_number between 837156864 and 837222399 then  'AIS'
+          when ip_number between 837615616 and 837681151 then  'TMH'
+          when ip_number between 1848705024 and 1848770559 then  'AIS'
+          when ip_number between 1867776000 and 1867825151 then  'DTAC'
+          when ip_number between 1867826176 and 1867841535 then  'DTAC'
+          when ip_number between 1933770752 and 1933836287 then  'DTAC'
+          when ip_number between 1998520320 and 1998553087 then  'AIS'
+          when ip_number between 2523597824 and 2523598847 then  'OTH'
+          when ip_number between 3033972736 and 3033980927 then  'TMH'
+          when ip_number between 3068657664 and 3068723199 then  'AIS'
+          when ip_number between 3398768640 and 3398769663 then  'AIS'
+          when ip_number between 3415276128 and 3415276159 then  'TMH'
+          when ip_number between 3742892032 and 3742957567 then  'TMH'
+         else 'Wi-Fi'
+  end as carrier, device_techname, tapad_id from
+(select regexp_replace(cast(cast(a.header.created_at/1000 as timestamp) as string),' .*','') as day, 
+	   case when lower(a.header.platform)='iphone' and (lower(a.header.user_agent) like ('%windows phone%') or lower(a.header.user_agent) like ('%lumia%')) then 'WINDOWS_PHONE' else a.header.platform end as platform, 
+	   cast(split_part(a.header.ip_address,'.',1) as INT)*16777216 + cast(split_part(a.header.ip_address,'.',2) as INT)*65536 + cast(split_part(a.header.ip_address,'.',3) as INT)*256+ cast(split_part(a.header.ip_address,'.',4) as INT) ip_number,
+	   b.value as tapad_id,  
+	case when lower(a.header.user_agent) like '%cpu iphone os 10%' then 'iphone os 10'
+  	 when lower(a.header.user_agent) like '%cpu iphone os 9%' then 'iphone os 9'
+  	 when lower(a.header.user_agent) like '%cpu iphone os 8%' then 'iphone os 8'
+  	 when lower(a.header.user_agent) like '%cpu iphone os 7%' then 'iphone os 7'
+  	 when lower(a.header.user_agent) like '%cpu iphone os 6%' then 'iphone os 6'
+  	 when lower(a.header.user_agent) like '%cpu iphone os 5%' then 'iphone os 5'
+  	 when lower(a.header.user_agent) like '%cpu iphone os 4%' then 'iphone os 4'
+  	 when lower(a.header.user_agent) like '%cpu iphone os 3%' then 'iphone os 3'
+  	 when lower(a.header.user_agent) like '%ipad%' then 'ipad'
+  	 when lower(a.header.user_agent) like '%lenovo a2010%' then 'lenovo a2010'
+  	 when lower(a.header.user_agent) like '%nokia603%' then 'nokia603'
+  	 when a.header.platform like '%COMPUTER%' or lower(a.header.user_agent) like '%windows nt' or lower(a.header.user_agent) like '%macintosh%' then 'computer'
+  	 when a.header.platform like '%FEATURE%' then 'feature phone'
+  	 when lower(a.header.user_agent) like '%zh-cn%' and lower(a.header.user_agent) like '%; android%' and lower(a.header.user_agent) not like '%build%'  then
+  			trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'zh-cn;.+; android',0),'zh-cn; ',''),'; android',''))
+  	 when lower(a.header.user_agent) like '%zh-cn%' and lower(a.header.user_agent) like '%android%'  and lower(a.header.user_agent) not like '%; android%' and lower(a.header.user_agent) not like '%build%'  then
+  			trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'zh-cn;.+android',0),'zh-cn; ',''),'android',''))
+  	 when lower(a.header.user_agent) like '%zh-cn%' and lower(a.header.user_agent) like '%android%' and lower(a.header.user_agent) like '%build%'  then
+  			trim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'zh-cn;.+build',0),'q.+',''),'zh-cn; ',''),'android',''),'build',''))
+
+  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%samsung%' then
+  			trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'samsung;.+like iphone os',0),'samsung; ',''),' like iphone.+',''))
+
+  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%microsoft%' and lower(a.header.user_agent) not like '%iphone os%' then trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'microsoft;.+ applewebkit',0),'microsoft; ',''),' applewebkit',''))
+
+  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%microsoft%' and lower(a.header.user_agent) like '%iphone os%' then trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'microsoft;.+like iphone os',0),'microsoft; ',''),' like iphone.+',''))
+
+  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%nokia%' and lower(a.header.user_agent) like '%like%' then
+  			trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'nokia;.+like',0),'like.+',''),'nokia;',''))
+  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%nokia%' and lower(a.header.user_agent) not like '%like%' then
+  			trim(regexp_replace(lower(a.header.user_agent), '.+nokia;',''))
+
+   else regexp_replace(regexp_replace(trim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(trim(regexp_replace(regexp_replace(regexp_extract(a.header.user_agent, ';.+Build',0),'.+;',''),'Build',''))),'samsung ',''), 'huawei ',''), 'lg-','lg '), 'asus_','asus '),'sony ','')),'-sm','sm'),'-sgh','sgh')
+
+   end as device_techname
+from default.id_syncs a, a.header.incoming_ids b, b.sightings_by_id_type c where a.header.network.country='THA' and partner_id in (2177)  and YEAR=2016 and ((MONTH=9 and DAY>=25) or (MONTH=10 and DAY < 25)) and c.key='TAPAD_COOKIE' and a.header.platform in ('ANDROID','ANDROID_TABLET','WINDOWS_PHONE','WINDOWS_TABLET','IPHONE') /*Mobile platform*/) A ) B order by day asc, platform asc, hl_carrier asc, device_techname asc);
+
+/*Join the device_techname from the kd_tpidlist_byday_carrier_device_0925_2410 table to the mobile atlas table and choose the minimum popularity rank (maximum popularity) when there are multiple matches*/
+  
+drop table if exists rata.kd_techname_match;
+use rata;create table rata.kd_techname_match row format delimited fields terminated by '\t' as (
+  select * from (SELECT a.device_techname as device_techname_raw, min(b.popularity) as popularity
+  FROM (select  device_techname from rata.kd_tpidlist_byday_carrier_device_0925_2410 group by device_techname) a
+left JOIN (select device_techname, popularity from rata.mobile_atlas_table where length(device_techname)>2 and device_techname not in ('iphone') and device_techname REGEXP '[A-Za-z]' order by popularity asc)  b 
+  ON a.device_techname LIKE CONCAT(b.device_techname, '%') group by device_techname_raw order by device_techname_raw desc) C where popularity is not null) ;
+  
+/*Add device properties from mobile atlas table to kd_techname_match table*/
+
+drop table if exists rata.kd_techname_match_mobileatlas;
+use rata;create table rata.kd_techname_match_mobileatlas row format delimited fields terminated by '\t' as (
+  select a.device_techname_raw, cast (a.popularity as double) as popularity, case when a.device_techname_raw='lenny' then  'lenny' when a.device_techname_raw='lenny2' then  'lenny2' else b.device_techname end as device_techname, b.brand, case when a.device_techname_raw='lenny' then  'lenny' when a.device_techname_raw='lenny2' then  'lenny2'  else b.device_commercname end as device_commercname, case when a.device_techname_raw='lenny' then  '2014' when a.device_techname_raw='lenny2' then  '2015' else b.release_year end as release_year, case when a.device_techname_raw='lenny' then  'August' when a.device_techname_raw='lenny2' then  'Sekdember' else b.release_month end as release_month, b.release_price, b.screensize, b.cluster from  rata.kd_techname_match a left join rata.mobile_atlas_table_wcluster b on a.popularity=b.popularity order by a.popularity asc);
+  
+/*Map mobile atlas properties to the kd_tpidlist_byday_carrier_device_0925_2410 table*/
+  
+drop table if exists rata.kd_sighting_bydevice_atlas_pre;
+  use rata;create table rata.kd_sighting_bydevice_atlas_pre row format delimited fields terminated by '\t' as (
+  SELECT a.day as day, case when a.platform ='IPHONE' then 'iOS' else 'ANDROID' end as platform, a.hl_carrier as hl_carrier, CASE WHEN b.device_techname IS NOT NULL THEN b.device_techname ELSE a.device_techname END AS device_techname, b.brand, b.device_commercname, b.release_year, b.release_month, b.release_price, b.screensize, b.cluster, tapad_id
+  FROM rata.kd_tpidlist_byday_carrier_device_0925_2410 a LEFT JOIN rata.kd_techname_match_mobileatlas  b 
+  ON a.device_techname = b.device_techname_raw ) ;
+  
+/*Print the most popular android phones*/
+
+  select device_commercname, count(distinct tapad_id) as num_tapad_id from rata.kd_sighting_bydevice_atlas_pre where platform ='ANDROID' group by device_commercname order by num_tapad_id desc limit 30;
+  
+/*Correct some of the rows and create high level device_commercname (top 10 android/ iphones/ oem, i-mobile)*/
+
+drop table if exists rata.kd_sighting_bydevice_atlas;
+  use rata;create table rata.kd_sighting_bydevice_atlas row format delimited fields terminated by '\t' as (
+  SELECT day, platform, hl_carrier, device_techname, CASE
+	WHEN device_techname like '%iphone os%' THEN 'apple'
+	WHEN (device_techname like '%smart%' OR device_techname like '%true%') AND brand IS NULL THEN 'tmh'
+	WHEN device_techname like '%lava%' OR device_techname like '%iris%' THEN 'ais'
+	WHEN device_techname like '%blade%' OR device_techname like '%dtac%' OR device_techname like '%joey%' OR device_techname like '%eagle%' THEN 'dtac' ELSE brand END AS brand, 
+  CASE 
+	WHEN device_commercname IS NULL then device_techname ELSE device_commercname END AS device_commercname, CASE 
+   WHEN device_commercname in (
+   'galaxy j7',
+   'galaxy note 3',
+   'galaxy note5',
+   'galaxy grand 2',
+   'galaxy note 4 (usa)',
+   'galaxy note ii n7100',
+   'galaxy note 8.0',
+   'galaxy j2',
+   'i9500 galaxy s4',
+   'galaxy s5 (usa)'
+   ) THEN device_commercname when device_techname like '%iphone os%' then 'iphones' when (device_techname like '%smart%' or device_techname like '%true%' or device_techname like '%lava%' or device_techname like '%iris%' or device_techname like '%dtac%' or device_techname like '%joey%' or device_techname like '%blade%' or device_techname like '%i-mobile%' or device_techname like '%i-style%') then 'OEM and i-mobiles' ELSE 'other' END AS hl_device_commercname, 
+  CASE 
+	WHEN device_techname ='iphone os 10' THEN '2013-2016' 
+	WHEN device_techname ='iphone os 9' THEN '2011-2016' 
+	WHEN device_techname IN ('iphone os 7','iphone os 8') THEN '2011-2014' 
+	WHEN device_techname IN ('iphone os 6') THEN '2009-2013' 
+	WHEN device_techname IN ('iphone os 5', 'iphone os 4') THEN '2009-2011' ELSE release_year END AS release_year, release_month, CASE 
+	WHEN device_techname LIKE '%iphone os%' THEN '700' 
+	WHEN brand = 'wiko' THEN '130' 
+	WHEN ((device_techname LIKE ('%smart%') OR device_techname LIKE ('%true%') OR device_techname LIKE ('%lava%') OR device_techname LIKE ('%iris%') OR device_techname LIKE ('%dtac%') OR device_techname LIKE ('%blade%') OR device_techname like '%joey%' OR device_techname like '%eagle%') AND release_price IS NULL) THEN '80' 
+	WHEN ((device_techname LIKE ('%i-mobile%') OR device_techname LIKE ('%i-style%')) AND release_price IS NULL) THEN '130' ELSE release_price end as release_price, CASE 
+	WHEN device_techname LIKE '%iphone os%' THEN '5.0' 
+	WHEN ((device_techname LIKE ('%lava%') OR device_techname LIKE ('%iris%') OR device_techname LIKE ('%smart%') OR device_techname LIKE ('%true%')) AND screensize IS NULL AND device_techname like '%4.0%') THEN '4.0' 
+	WHEN ((device_techname LIKE ('%lava%') OR device_techname LIKE ('%iris%') OR device_techname LIKE ('%smart%') OR device_techname LIKE ('%true%')) AND screensize IS NULL AND device_techname like '%4.5%') THEN '4.5' 
+	WHEN ((device_techname LIKE ('%lava%') OR device_techname LIKE ('%iris%') OR device_techname LIKE ('%smart%') OR device_techname LIKE ('%true%')) AND screensize IS NULL AND device_techname like '%5.0%') THEN '5.0' 
+	WHEN ((device_techname LIKE ('%lava%') OR device_techname LIKE ('%iris%') OR device_techname LIKE ('%smart%') OR device_techname LIKE ('%true%')) AND screensize IS NULL AND device_techname like '%7.0%') THEN '7.0' 
+	WHEN (device_techname LIKE ('%dtac%') OR device_techname LIKE ('%blade%') OR device_techname like '%joey%' OR device_techname like '%eagle%' AND screensize IS NULL) THEN '5.0'  WHEN ((device_techname LIKE ('%i-mobile%') OR device_techname LIKE ('%i-style%')) AND screensize IS NULL) THEN '5.0' ELSE screensize end as screensize, cluster, tapad_id
+ FROM  rata.kd_sighting_bydevice_atlas_pre
+  );
+  
+  /*Monthly and average daily count*/
+  drop table if exists rata.kd_sighting_bycluster_monthly;
+  use rata;create table rata.kd_sighting_bycluster_monthly row format delimited fields terminated by '\t' as (
+  select hl_carrier, case when hl_device_commercname ='iphones' then 11 when hl_device_commercname='OEM and i-mobiles' then 12 when cluster is null then 13 else cluster end as cluster, count(distinct tapad_id) as num_tapad_id_monthly from rata.kd_sighting_bydevice_atlas group by hl_carrier, cluster);
+  
+  drop table if exists rata.kd_sighting_bycluster_avgdaily;
+    use rata;create table rata.kd_sighting_bycluster_avgdaily row format delimited fields terminated by '\t' as (
+  select hl_carrier, cluster, avg(num_tapad_id_daily) as num_tapad_id_daily from ( select hl_carrier, case when hl_device_commercname ='iphones' then 11 when hl_device_commercname='OEM and i-mobiles' then 12 when cluster is null then 13 else cluster end as cluster, day, count(distinct tapad_id) as num_tapad_id_daily from rata.kd_sighting_bydevice_atlas group by hl_carrier, cluster, day order by hl_carrier asc, cluster asc) A group by hl_carrier, cluster order by hl_carrier asc, cluster asc);
+  
+  /* Export csv
+  impala-shell -i impala.prd.sg1.tapad.com:21000 -B -o /local/home/rata.suwantong/kd_sighting_bycluster_160925_1024_pre.csv --output_delimiter=',' -q "use rata;
+  select B.*, round(D.num_tapad_id_daily) as num_tapad_id_avdaily from rata.kd_sighting_bycluster_monthly B join rata.kd_sighting_bycluster_avgdaily D on B.hl_carrier=D.hl_carrier and B.cluster=D.cluster order by B.hl_carrier asc, B.cluster asc"
+
+  
+
+echo $'HL_CARRIER,CLUSTER,NUM_TAPAD_ID_MONTHLY,NUM_TAPAD_ID_AVDAILY' | cat - kd_sighting_bycluster_160925_1024_pre.csv  > kd_sighting_bycluster_160925_1024.csv
+
+*/
