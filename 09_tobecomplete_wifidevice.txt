@@ -1,0 +1,15 @@
+drop table if exists rata.pt_nonDtac_device;
+use rata;create table rata.pt_nonDtac_device row format delimited fields terminated by '\t' as (
+select A.* from (select tapad_id, min(hl_carrier) as hl_carrier /*prioritizing OMO (when a tapad_id has visited Pantip on both wifi and omo, omo will be chosen)*/, min(device_techname) as device_techname, min(brand) as brand, min(device_commercname) as device_commercname, min(release_year) as release_year, min(release_month) as release_month, min(release_price) as release_price, min(screensize) as screensize, min(cluster) as cluster from rata.pt_sighting_bydevice_atlas where hl_carrier !='DTAC' group by tapad_id) A left join rata.tpidlist_dtac_10 B on A.tapad_id = B.tapad_id where B.tapad_id is null
+);
+
+select hl_carrier, count(distinct tapad_id) from rata.pt_nonDtac_device group by hl_carrier ;
+
+
+select hl_carrier, device_techname, device_commercname, count(distinct tapad_id) as num_tapad_id from rata.pt_nonDtac_device where hl_carrier='Wi-Fi' group by hl_carrier, device_techname, device_commercname order by num_tapad_id desc limit 50;
+
+select hl_carrier, device_techname, device_commercname, count(distinct tapad_id) as num_tapad_id from rata.pt_nonDtac_device where hl_carrier='OMO' group by hl_carrier, device_techname, device_commercname order by num_tapad_id desc limit 50;
+
+select tapad_id from rata.pt_nonDtac_device where device_techname="" limit 10;
+
+

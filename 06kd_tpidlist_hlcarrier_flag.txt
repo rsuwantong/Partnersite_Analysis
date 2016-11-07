@@ -1,0 +1,36 @@
+/*
+####################################################################################
+# Name: 06kd_tpidlist_hlcarrier_flag
+# Descrikdion: Create a list of tapad id on Kaidee (1 month) with flags of used high level carrier (Wifi-Dtac-Omo) by each tapad id
+# Input: rata.kd_tpidlist_bycarrier_0925_2410
+# Version:
+#   2016/11/02 RS: Initial version
+#   
+####################################################################################
+*/
+
+
+create table rata.kd_tpidlist_hlcarrier_flag  row format delimited fields terminated by '\t' as ( select tapad_id, case when Dtac_flag>0 then 1 else 0 end as Dtac_flag, case when Omo_flag>0 then 1 else 0 end as Omo_flag, case when Wifi_flag>0 then 1 else 0 end as Wifi_flag from
+(select tapad_id, sum(Dtac_flag) as Dtac_flag, sum(Omo_flag) as Omo_flag, sum(Wifi_flag) as Wifi_flag from
+(select tapad_id, 
+		case when hl_carrier ='DTAC' then 1 else 0 end as Dtac_flag,
+		case when hl_carrier ='OMO' then 1 else 0 end as Omo_flag,
+		case when hl_carrier ='Wi-Fi' then 1 else 0 end as Wifi_flag
+		from rata.kd_tpidlist_bycarrier_0925_2410 where platform = 'Mobile' ) A group by tapad_id) B  );
+		
+
+select Wifi_flag, Omo_flag, Dtac_flag, count(tapad_id) from rata.kd_tpidlist_hlcarrier_flag group by Wifi_flag, Omo_flag, Dtac_flag order by Wifi_flag asc, Omo_flag asc, Dtac_flag asc;
+
+/*
++-----------+----------+-----------+-----------------+
+| wifi_flag | omo_flag | dtac_flag | count(tapad_id) |
++-----------+----------+-----------+-----------------+
+| 0         | 0        | 1         | 407206          |
+| 0         | 1        | 0         | 904304          |
+| 0         | 1        | 1         | 3692            |
+| 1         | 0        | 0         | 1487444         |
+| 1         | 0        | 1         | 52988           |
+| 1         | 1        | 0         | 199669          |
+| 1         | 1        | 1         | 3238            |
++-----------+----------+-----------+-----------------+
+*/

@@ -1,0 +1,43 @@
+/* By device */
+drop table if exists rata.pt_nonDtac_device;
+use rata;create table rata.pt_nonDtac_device row format delimited fields terminated by '\t' as (
+select A.* from (select tapad_id, min(hl_carrier) as hl_carrier /*prioritizing OMO (when a tapad_id has visited Pantip on both wifi and omo, omo will be chosen)*/, min(device_techname) as device_techname, min(brand) as brand, min(device_commercname) as device_commercname, min(release_year) as release_year, min(release_month) as release_month, min(release_price) as release_price, min(screensize) as screensize, min(cluster) as cluster from rata.pt_sighting_bydevice_atlas where hl_carrier !='DTAC' group by tapad_id) A left join rata.tpidlist_dtac_10 B on A.tapad_id = B.tapad_id where B.tapad_id is null
+);
+
+select hl_carrier, count(distinct tapad_id) from rata.pt_nonDtac_device group by hl_carrier ;
+
+
+select hl_carrier, device_techname, device_commercname, count(distinct tapad_id) as num_tapad_id from rata.pt_nonDtac_device where hl_carrier='Wi-Fi' group by hl_carrier, device_techname, device_commercname order by num_tapad_id desc limit 50;
+
+select hl_carrier, device_techname, device_commercname, count(distinct tapad_id) as num_tapad_id from rata.pt_nonDtac_device where hl_carrier='OMO' group by hl_carrier, device_techname, device_commercname order by num_tapad_id desc limit 50;
+
+/* Count tapad ids */
+drop table if exists rata2.pt_wifinonDtac;
+create table rata2.pt_wifinonDtac row format delimited fields terminated by '\t' as (
+select A.tapad_id from (select tapad_id from rata.pt_tapad_list_allnetwork where Wifi_flag=1 and Omo_flag=0 and Dtac_flag=0) A left join rata.tpidlist_dtac_10 B on A.tapad_id = B.tapad_id where B.tapad_id is null
+);
+
+select count(tapad_id) from rata.pt_tapad_list_allnetwork where Wifi_flag=1 and Omo_flag=0 and Dtac_flag=0
+
+
+select count(distinct tapad_id) from
+(select A.* from (select * from rata.pt_sighting_bydevice_atlas where hl_carrier ='Wi-Fi' ) A join rata2.pt_wifinonDtac B on A.tapad_id = B.tapad_id ) C ;
+
+  /*Monthly and average daily count*/
+  drop table if exists rata.pt_sighting_bycluster_monthly_wifinonDtac;
+  use rata;create table rata.pt_sighting_bycluster_monthly_wifinonDtac row format delimited fields terminated by '\t' as (
+  select hl_carrier, case when hl_device_commercname ='iphones' then 11 when hl_device_commercname='OEM and i-mobiles' then 12 when cluster is null then 13 else cluster end as cluster, count(distinct tapad_id) as num_tapad_id_monthly from (select A.* from (select * from rata.pt_sighting_bydevice_atlas where hl_carrier ='Wi-Fi' ) A join rata2.pt_wifinonDtac B on A.tapad_id = B.tapad_id ) C group by hl_carrier, cluster order by hl_carrier asc, cluster asc);
+  
+  drop table if exists rata.pt_sighting_bycluster_avgdaily_wifinonDtac;
+    use rata;create table rata.pt_sighting_bycluster_avgdaily_wifinonDtac row format delimited fields terminated by '\t' as (
+  select hl_carrier, cluster, round(avg(num_tapad_id_daily),0) as num_tapad_id_daily from ( select hl_carrier, case when hl_device_commercname ='iphones' then 11 when hl_device_commercname='OEM and i-mobiles' then 12 when cluster is null then 13 else cluster end as cluster, day, count(distinct tapad_id) as num_tapad_id_daily from (select A.* from (select * from rata.pt_sighting_bydevice_atlas where hl_carrier ='Wi-Fi' ) A join rata2.pt_wifinonDtac B on A.tapad_id = B.tapad_id ) C group by hl_carrier, cluster, day order by hl_carrier asc, cluster asc) D group by hl_carrier, cluster order by hl_carrier asc, cluster asc);
+  
+  select sum(num_tapad_id_daily) from rata.pt_sighting_bycluster_avgdaily_wifinonDtac;
+  
+  /* Export csv
+  impala-shell -i impala.prd.sg1.tapad.com:21000 -B -o /local/home/rata.suwantong/pt_sighting_bycluster_160925_1024_wifinonDtac_pre.csv --output_delimiter=',' -q "use rata;
+  select 'Wi-Fi non DTAC' as hl_carrier, B.cluster, B.num_tapad_id_monthly, round(D.num_tapad_id_daily) as num_tapad_id_avdaily from rata.pt_sighting_bycluster_monthly_wifinonDtac B join rata.pt_sighting_bycluster_avgdaily_wifinonDtac D on B.hl_carrier=D.hl_carrier and B.cluster=D.cluster order by B.hl_carrier asc, B.cluster asc"
+
+  
+
+echo $'HL_CARRIER,CLUSTER,NUM_TAPAD_ID_MONTHLY,NUM_TAPAD_ID_AVDAILY' | cat - pt_sighting_bycluster_160925_1024_wifinonDtac_pre.csv  > pt_sighting_bycluster_160925_1024_wifinonDtac.csv

@@ -35,45 +35,18 @@ case when ip_number between 18087936 and 18153471 then 'OTH' /*OTH means TOT */
           when ip_number between 3742892032 and 3742957567 then  'TMH'
          else 'Wi-Fi'
   end as carrier, device_techname, count(distinct tapad_id) as num_tapad_id from
-(select regexp_replace(cast(cast(a.header.created_at/1000 as timestamp) as string),' .*','') as day, 
+	(select regexp_replace(cast(cast(a.header.created_at/1000 as timestamp) as string),' .*','') as day, 
 	   case when lower(a.header.platform)='iphone' and (lower(a.header.user_agent) like ('%windows phone%') or lower(a.header.user_agent) like ('%lumia%')) then 'WINDOWS_PHONE' else a.header.platform end as platform, 
 	   cast(split_part(a.header.ip_address,'.',1) as INT)*16777216 + cast(split_part(a.header.ip_address,'.',2) as INT)*65536 + cast(split_part(a.header.ip_address,'.',3) as INT)*256+ cast(split_part(a.header.ip_address,'.',4) as INT) ip_number,
 	   b.value as tapad_id,  
-	   case when lower(a.header.user_agent) like '%cpu iphone os 10%' then 'iphone os 10'
-  	 when lower(a.header.user_agent) like '%cpu iphone os 9%' then 'iphone os 9'
-  	 when lower(a.header.user_agent) like '%cpu iphone os 8%' then 'iphone os 8'
-  	 when lower(a.header.user_agent) like '%cpu iphone os 7%' then 'iphone os 7'
-  	 when lower(a.header.user_agent) like '%cpu iphone os 6%' then 'iphone os 6'
-  	 when lower(a.header.user_agent) like '%cpu iphone os 5%' then 'iphone os 5'
-  	 when lower(a.header.user_agent) like '%cpu iphone os 4%' then 'iphone os 4'
-  	 when lower(a.header.user_agent) like '%cpu iphone os 3%' then 'iphone os 3'
-  	 when lower(a.header.user_agent) like '%ipad%' then 'ipad'
-  	 when lower(a.header.user_agent) like '%lenovo a2010%' then 'lenovo a2010'
-  	 when lower(a.header.user_agent) like '%nokia603%' then 'nokia603'
-  	 when a.header.platform like '%COMPUTER%' or lower(a.header.user_agent) like '%windows nt' or lower(a.header.user_agent) like '%macintosh%' then 'computer'
-  	 when a.header.platform like '%FEATURE%' then 'feature phone'
-  	 when lower(a.header.user_agent) like '%zh-cn%' and lower(a.header.user_agent) like '%; android%' and lower(a.header.user_agent) not like '%build%'  then
-  			trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'zh-cn;.+; android',0),'zh-cn; ',''),'; android',''))
-  	 when lower(a.header.user_agent) like '%zh-cn%' and lower(a.header.user_agent) like '%android%'  and lower(a.header.user_agent) not like '%; android%' and lower(a.header.user_agent) not like '%build%'  then
-  			trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'zh-cn;.+android',0),'zh-cn; ',''),'android',''))
-  	 when lower(a.header.user_agent) like '%zh-cn%' and lower(a.header.user_agent) like '%android%' and lower(a.header.user_agent) like '%build%'  then
-  			trim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'zh-cn;.+build',0),'q.+',''),'zh-cn; ',''),'android',''),'build',''))
-
-  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%samsung%' then
-  			trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'samsung;.+like iphone os',0),'samsung; ',''),' like iphone.+',''))
-
-  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%microsoft%' and lower(a.header.user_agent) not like '%iphone os%' then trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'microsoft;.+ applewebkit',0),'microsoft; ',''),' applewebkit',''))
-
-  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%microsoft%' and lower(a.header.user_agent) like '%iphone os%' then trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'microsoft;.+like iphone os',0),'microsoft; ',''),' like iphone.+',''))
-
-  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%nokia%' and lower(a.header.user_agent) like '%like%' then
-  			trim(regexp_replace(regexp_replace(regexp_extract(lower(a.header.user_agent), 'nokia;.+like',0),'like.+',''),'nokia;',''))
-  	 when lower(a.header.user_agent) like '%windows phone%' and lower(a.header.user_agent) like '%nokia%' and lower(a.header.user_agent) not like '%like%' then
-  			trim(regexp_replace(lower(a.header.user_agent), '.+nokia;',''))
-
-   else regexp_replace(regexp_replace(trim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(trim(regexp_replace(regexp_replace(regexp_extract(a.header.user_agent, ';.+Build',0),'.+;',''),'Build',''))),'samsung ',''), 'huawei ',''), 'lg-','lg '), 'asus_','asus '),'sony ','')),'-sm','sm'),'-sgh','sgh')
-
-   end as device_techname
+	   case
+	   when lcase(a.header.user_agent) like '%cpu iphone os%' and lcase(a.header.user_agent) like '%ipod%' and lcase(a.header.platform)='iphone' then 'ipod' 
+		when lcase(a.header.user_agent) like '%cpu iphone os%' or lcase(a.header.user_agent) like '%iphone; u; cpu iphone%' or lcase(a.header.user_agent) like '%iphone; cpu os%' and lcase(a.header.platform)='iphone' then regexp_replace(regexp_replace(regexp_replace(lcase(a.header.user_agent),'.*iphone;( u;)? cpu ',''),'like mac os.*',''),'_.*','') 
+		when lcase(a.header.user_agent) like '%(null) [fban%' and lcase(a.header.user_agent) like '%fbdv/iphone%' and lcase(a.header.platform)='iphone' then regexp_extract(regexp_replace(lcase(a.header.user_agent),'.*fbdv/',''),'iphone[0-9]',0) 
+		when lcase(a.header.user_agent) like '%android; mobile; rv%' or lcase(a.header.user_agent) like '%mobile rv[0-9][0-9].[0-9] gecko%' then 'unidentified android' 
+		when lcase(a.header.user_agent) like '%android; tablet; rv%' or lcase(a.header.user_agent) like '%tablet rv[0-9][0-9].[0-9] gecko%' then 'unidentified tablet' 
+		else 
+		regexp_replace(regexp_replace(regexp_replace(trim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(lcase(a.header.user_agent),'.*android [0-9](.[0-9](.[0-9])?)?; ',''),' build.*|; android/.*|\\) applewebkit.*|/v[0-9] linux.*|v_td.*|_td/v[0-9].*|i_style.*',''),'.*(th|en|zh|zz)(-|_)(gb|au|ph|th|us|cn|nz|gb|tw|fi|jp|za|sg|ie|zz);? |.*nokia; ',''),'/.*|linux.*','')),'[^0-9a-z\- \.]',''),'.*samsung(-| )|.*lenovo |.*microsoft |.*th- ',''),'like.*|lollipop.*','') end as device_techname 
 from default.id_syncs a, a.header.incoming_ids b, b.sightings_by_id_type c where a.header.network.country='THA' and partner_id in (2243)  and YEAR=2016 and (MONTH=10 and DAY<19) and c.key='TAPAD_COOKIE' and a.header.platform in ('ANDROID','ANDROID_TABLET','WINDOWS_PHONE','WINDOWS_TABLET','IPHONE') /*Mobile platform*/) A group by day, platform, carrier, device_techname order by day asc, platform asc, carrier asc) B order by day asc, platform asc, hl_carrier asc, carrier asc, device_techname asc, num_tapad_id);
 
 /*#### Add device properties to pt_tpidnum_byday_device_1001_1018 table ####*/

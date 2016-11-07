@@ -28,16 +28,19 @@ select count(tapad_id) from rata.pt_wifi; /*Check the accuracy*/
 
 drop table if exists rata.tpidlist_dtac_10;
 create table rata.tpidlist_dtac_10  row format delimited fields terminated by '\t' as ( 
-select tapad_id from apollo.tapad_id_summary_counts where txn_dtac>0 and month =10 group by tapad_id );
+select tapad_id from apollo.tapad_id_summary_counts where txn_dtac>0 and ((month =9 and day >=25) or (month=10 and day <25)) group by tapad_id );
 
 /*Exclude the Dtac users from pantip wifi users*/
 drop table if exists rata2.pt_tpidlist_wifionly_nonDtac;
-create table rata2.pt_tpidlist_wifionly_nonDtac  row format delimited fields terminated by '\t' as ( select A.* from rata.pt_wifi A left join rata.tpidlist_dtac_10 B on A.tapad_id = B.tapad_id where b.tapad_id is null) ;
+create table rata2.pt_tpidlist_wifionly_nonDtac  row format delimited fields terminated by '\t' as ( select A.tapad_id from rata.pt_wifi A left join rata.tpidlist_dtac_10 B on A.tapad_id = B.tapad_id where b.tapad_id is null) ;
+
+/*
 +--------------------------+
-| count(distinct tapad_id) |
+| summary                  |
 +--------------------------+
-| 10356654                 |
+| Inserted 10369581 row(s) |
 +--------------------------+
+*/
 
 /* If we want to extract the surely OMO uses from "wifi-only on Pantip" users instead, use: */
 /*
